@@ -16,22 +16,21 @@ class TAQTradesReader(object):
         self.filePathName = filePathName
         with gzip.open(filePathName, "rb") as f:
             file_content = f.read()
-            f.close()  # Not necessary as we read the entire file.
             self._header = struct.unpack_from(">2i", file_content[0:8])
+            
+            # millis from midnight
             endI = 8 + (4 * self._header[1])
-            self._ts = struct.unpack_from(
-                (">%di" % self._header[1]), file_content[8:endI]
-            )
+            self._ts = struct.unpack_from((">%di" % self._header[1]), file_content[8:endI])
             startI = endI
+
+            
             endI = endI + (4 * self._header[1])
-            self._s = struct.unpack_from(
-                (">%di" % self._header[1]), file_content[startI:endI]
-            )
+            self._s = struct.unpack_from((">%di" % self._header[1]), file_content[startI:endI])
             startI = endI
+
+            
             endI = endI + (4 * self._header[1])
-            self._p = struct.unpack_from(
-                (">%df" % self._header[1]), file_content[startI:endI]
-            )
+            self._p = struct.unpack_from((">%df" % self._header[1]), file_content[startI:endI])
 
     def getN(self):
         return self._header[1]

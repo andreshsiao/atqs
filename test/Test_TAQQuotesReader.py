@@ -11,16 +11,16 @@ class Test_TAQQuotesReader(unittest.TestCase):
         zz = list([
             reader.getN(),
             reader.getSecsFromEpocToMidn(),
-            reader.getMillisFromMidn( 0 ),
-            reader.getAskSize( 0 ),
-            reader.getAskPrice( 0 ),
-            reader.getBidSize( 0 ),
-            reader.getBidPrice( 0 )
+            reader.getMillisFromMidn(0),
+            reader.getAskSize(0),
+            reader.getAskPrice(0),
+            reader.getBidSize(0),
+            reader.getBidPrice(0)
         ])
         self.assertEqual(
             '[70166, 1190260800, 34210000, 1, 116.19999694824219, 38, 116.19999694824219]', 
             str(zz) 
-        )
+       )
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
 import os
-from taq.Utils import compute_midquote_returns, time_to_millis
+from taq.Utils import time_to_millis
 from taq.TAQQuotesReader import TAQQuotesReader
 from taq.MyDirectories import BASE_PATH
 
 class DataProcessor:
     def __init__(self, extract_dir):
-        self.extract_dir = extract_dir  # Directory containing extracted date folders
+        self.extract_dir = extract_dir
 
     def compute_midquote_returns(self, daily_data, interval=120):
         """Computes mid-quote returns at a given interval (default: 2 minutes)."""
@@ -57,7 +57,6 @@ class DataProcessor:
     def filter_time_range(self, daily_data, start, end):
         """Filters data for a specific time range."""
         # Convert start and end time strings ("HH:MM") to timestamps in milliseconds from midnight
-
         start_millis = time_to_millis(start)
         end_millis = time_to_millis(end)
 
