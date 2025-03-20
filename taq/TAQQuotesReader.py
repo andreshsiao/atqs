@@ -41,24 +41,24 @@ class TAQQuotesReader(object):
             endI = endI + (4 * self._header[1])
             self._ap = struct.unpack_from((">%df" % self._header[1]), file_content[startI:endI])
 
-    def getN(self):
+    def get_n(self):
         return self._header[1]
     
-    def getSecsFromEpocToMidn(self):
+    def get_secs_from_epoc_to_midn(self):
         return self._header[0]
     
-    def getMillisFromMidn(self, index):
+    def get_millis_from_midn(self, index):
         return self._ts[index]
 
-    def getAskSize(self, index):
+    def get_ask_size(self, index):
         return self._as[index]
     
-    def getAskPrice(self, index):
+    def get_ask_price(self, index):
         return self._ap[index]
 
-    def getBidSize(self, index):
+    def get_bid_size(self, index):
         return self._bs[index]
     
-    def getBidPrice(self, index):
+    def get_bid_price(self, index):
         return self._bp[index]
 

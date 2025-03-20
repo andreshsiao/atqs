@@ -10,7 +10,8 @@ def extract_tar_files(tar_dir, extract_dir):
         if tarfile_name.endswith(".tar"):
             tar_path = os.path.join(tar_dir, tarfile_name)
 
-            if not os.path.exists(os.path.join(extract_dir, tarfile_name.split('.')[0])):  # Avoid re-extracting
+            # Avoid re-extracting
+            if not os.path.exists(os.path.join(extract_dir, tarfile_name.split('.')[0])):  
                 print(f"Extracting {tarfile_name}...")
                 with tarfile.open(tar_path, "r") as tar:
                     tar.extractall(extract_dir)
@@ -22,12 +23,6 @@ def get_stock_list(date_path):
 def extract_all_quotes(reader):
     """
     Extracts all quotes from TAQQuotesReader into a structured list.
-    
-    Args:
-        reader (TAQQuotesReader): An instance of TAQQuotesReader.
-
-    Returns:
-        List[dict]: A list where each dictionary represents a quote entry.
     """
     n = reader.getN()  # Number of records
     extracted_data = []

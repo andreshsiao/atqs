@@ -1,7 +1,6 @@
 import gzip
 import struct
 
-
 class TAQTradesReader(object):
     """
     This reader reads an entire compressed binary TAQ trades file into memory,
@@ -32,29 +31,29 @@ class TAQTradesReader(object):
             endI = endI + (4 * self._header[1])
             self._p = struct.unpack_from((">%df" % self._header[1]), file_content[startI:endI])
 
-    def getN(self):
+    def get_n(self):
         return self._header[1]
 
-    def getSecsFromEpocToMidn(self):
+    def get_secs_from_epoc_to_midn(self):
         return self._header[0]
 
-    def getPrice(self, index):
+    def get_price(self, index):
         return self._p[index]
 
-    def getMillisFromMidn(self, index):
+    def get_millis_from_midn(self, index):
         return self._ts[index]
 
-    def getTimestamp(self, index):
-        return self.getMillisFromMidn(index)  # Compatibility
+    def get_timestamp(self, index):
+        return self.get_millis_from_midn(index)  # Compatibility (more intuitive)
 
-    def getSize(self, index):
+    def get_size(self, index):
         return self._s[index]
 
     def rewrite(self, filePathName, tickerId):
         s = struct.Struct(">QHIf")
         out = gzip.open(filePathName, "wb")
-        baseTS = self.getSecsFromEpocToMidn() * 1000
-        for i in range(self.getN()):
+        baseTS = self.get_secs_from_epoc_to_midn() * 1000
+        for i in range(self.get_n()):
             ts = baseTS + self.getMillisFromMidn(i)
-            out.write(s.pack(ts, tickerId, self.getSize(i), self.getPrice(i)))
+            out.write(s.pack(ts, tickerId, self.get_size(i), self.get_price(i)))
         out.close()

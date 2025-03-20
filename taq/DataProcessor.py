@@ -1,6 +1,5 @@
 import os
-from taq.Utils import time_to_millis
-from taq.TAQQuotesReader import TAQQuotesReader
+from taq.Utils import time_to_millis 
 from taq.MyDirectories import BASE_PATH
 
 class DataProcessor:
