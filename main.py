@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict
 import pandas as pd
-from taq.MyDirectories import MyDirectories
+from taq.MyDirectories import MyDirectories, BASE_PATH
 from taq.DataProcessor import DataProcessor
 from taq.TAQQuotesReader import TAQQuotesReader
 from taq.Utils import extract_tar_files, extract_all_quotes, get_stock_list  # Importing from Utils
@@ -57,7 +57,7 @@ def main():
             feature_matrices["terminal_price"][stock][date_folder] = terminal_price
 
     # Save feature matrices to CSV
-    output_dir = os.path.join(extract_dir, "feature_matrices")
+    output_dir = os.path.join(BASE_PATH, "../feature_matrices")
     os.makedirs(output_dir, exist_ok=True)
 
     for feature, matrix in feature_matrices.items():
