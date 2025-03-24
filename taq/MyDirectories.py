@@ -4,11 +4,11 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 class MyDirectories:
     @staticmethod
-    def get_quotes_dir():
+    def getQuotesDir():
         """Returns the path to the quotes directory."""
-        return os.path.join(BASE_PATH, "../data/quotes")
+        return os.path.join(BASE_PATH, "../data/quotes/extracted")
     
     @staticmethod
-    def get_trades_dir():
+    def getTradesDir():
         """Returns the path to the trades directory."""
-        return os.path.join(BASE_PATH, "../data/trades")
+        return os.path.join(BASE_PATH, "../data/trades/extracted")

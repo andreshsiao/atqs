@@ -1,7 +1,6 @@
 import unittest
 
-from taq import MyDirectories
-from taq.TAQQuotesReader import TAQQuotesReader
+from taq.MyDirectories import MyDirectories
 from taq.TAQTradesReader import TAQTradesReader
 
 
