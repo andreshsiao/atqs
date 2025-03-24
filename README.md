@@ -27,3 +27,19 @@ atqs/
 ├── params_part1.txt             # NLS model parameter outputs
 └── README.md                    # Project documentation
 ```
+## Required Packages
+
+To run this project, ensure the following Python packages are installed:
+
+- `numpy` - For numerical computations
+- `pandas` - For data manipulation and analysis
+- `matplotlib` - For plotting and visualization
+- `scipy` - For scientific computing and optimization
+- `statsmodels` - For statistical modeling and analysis
+- `pytest` - For running unit tests
+
+You can install the required external packages using:
+
+```bash
+pip install numpy pandas matplotlib scipy statsmodels pytest
+```
