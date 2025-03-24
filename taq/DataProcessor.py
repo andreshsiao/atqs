@@ -45,8 +45,8 @@ class DataProcessor:
     def compute_vwap(self, daily_data, start, end):
         """Computes VWAP for a given time range."""
         filtered_data = self.filter_time_range(daily_data, start, end)
-        total_value = sum([p * v for p, v in zip(filtered_data["mid_quote"], filtered_data["volume"])])
-        total_volume = sum(filtered_data["volume"])
+        total_value = sum([entry["mid_quote"] * entry["volume"] for entry in filtered_data])
+        total_volume = sum(entry["volume"] for entry in filtered_data)
         return total_value / total_volume if total_volume > 0 else 0
 
     def compute_terminal_price(self, daily_data):
