@@ -7,7 +7,7 @@ def extract_tar_files(tar_dir, extract_dir):
         os.makedirs(extract_dir)
 
     for tarfile_name in os.listdir(tar_dir):
-        if tarfile_name.endswith(".tar"):
+        if tarfile_name.endswith(".tar") or tarfile_name.endswith(".tar.gz"):
             tar_path = os.path.join(tar_dir, tarfile_name)
 
             # Avoid re-extracting
