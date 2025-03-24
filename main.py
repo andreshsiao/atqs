@@ -12,14 +12,17 @@ from taq.NLSEstimator import NLSImpactEstimator
 from taq.Utils import extract_tar_files, extract_all_quotes, get_stock_list  # Importing from Utils
 
 def main():
-    # Define input directories
-    tar_dir = MyDirectories.get_quotes_dir()
-    extract_dir = os.path.join(tar_dir, "extracted")
+    # Extract quote and trade data from tar files
+    quotes_extract_dir = MyDirectories.getQuotesDir()
+    quotes_tar_dir = os.path.join(quotes_extract_dir, "..")
+    extract_tar_files(quotes_tar_dir, quotes_extract_dir)
 
-    extract_tar_files(tar_dir, extract_dir)
+    trades_extract_dir = MyDirectories.getQuotesDir()
+    trades_tar_dir = os.path.join(trades_extract_dir, "..")
+    extract_tar_files(trades_tar_dir, trades_extract_dir)
 
     # Initialize data processor
-    processor = DataProcessor(extract_dir)
+    processor = DataProcessor(quotes_extract_dir)
 
     feature_matrices = {
         "2min_returns": defaultdict(dict),
@@ -30,13 +33,12 @@ def main():
     }
 
     # Process each extracted date folder
-    for date_folder in sorted(os.listdir(extract_dir)):
-        date_path = os.path.join(extract_dir, date_folder)
+    for date_folder in sorted(os.listdir(quotes_extract_dir)):
+        date_path = os.path.join(quotes_extract_dir, date_folder)
         if not os.path.isdir(date_path):
             continue  # Skip if not a folder
 
-        # stock_list = get_stock_list(date_path)
-        stock_list = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'NVDA', 'JNJ', 'JPM', 'MS', 'PG']
+        stock_list = get_stock_list(date_path)
 
         for stock in stock_list:
             print(f"Processing stock {date_folder}: {stock}")
