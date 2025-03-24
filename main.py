@@ -119,6 +119,7 @@ def main():
 
     # Q-Q plot of residuals
     sm.qqplot(residuals, line='s')
+    plt.legend(["Residuals", "Theoretical Quantiles"])
     plt.title("Q-Q Plot of NLS Residuals")
     plt.savefig("nls_qq_plot.png")
     plt.close()
