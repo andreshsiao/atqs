@@ -124,6 +124,14 @@ def main():
     plt.savefig("nls_qq_plot.png")
     plt.close()
 
+    # Log Q-Q plot of residuals
+    log_residuals = np.log(np.abs(residuals[residuals != 0]))  # Avoid log(0) by filtering out zeros
+    sm.qqplot(log_residuals, line='s')
+    plt.legend(["Log Residuals", "Theoretical Quantiles"])
+    plt.title("Log Q-Q Plot of NLS Residuals")
+    plt.savefig("nls_log_qq_plot.png")
+    plt.close()
+
     # Shapiro-Wilk test for normality
     shapiro_stat, shapiro_p = stats.shapiro(residuals)
     print(f"Shapiro-Wilk test statistic: {shapiro_stat}, p-value: {shapiro_p}")
