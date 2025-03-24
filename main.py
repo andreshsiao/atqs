@@ -1,9 +1,14 @@
 import os
 from collections import defaultdict
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+import statsmodels.api as sm
 from taq.MyDirectories import MyDirectories, BASE_PATH
 from taq.DataProcessor import DataProcessor
 from taq.TAQQuotesReader import TAQQuotesReader
+from taq.NLSEstimator import NLSImpactEstimator
 from taq.Utils import extract_tar_files, extract_all_quotes, get_stock_list  # Importing from Utils
 
 def main():
@@ -31,7 +36,7 @@ def main():
             continue  # Skip if not a folder
 
         # stock_list = get_stock_list(date_path)
-        stock_list = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'NVDA', 'JNJ', 'JPM']
+        stock_list = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'NVDA', 'JNJ', 'JPM', 'MS', 'PG']
 
         for stock in stock_list:
             print(f"Processing stock {date_folder}: {stock}")
@@ -57,12 +62,74 @@ def main():
             feature_matrices["terminal_price"][stock][date_folder] = terminal_price
 
     # Save feature matrices to CSV
-    output_dir = os.path.join(BASE_PATH, "../feature_matrices")
-    os.makedirs(output_dir, exist_ok=True)
+    feature_dir = os.path.join(BASE_PATH, "../data/feature_matrices")
+    os.makedirs(feature_dir, exist_ok=True)
 
     for feature, matrix in feature_matrices.items():
         df = pd.DataFrame(matrix).T.sort_index()
-        df.to_csv(os.path.join(output_dir, f"{feature}.csv"))
+        df.to_csv(os.path.join(feature_dir, f"{feature}.csv"))
+
+    # Initialize the NLSImpactEstimator with the feature directory
+    estimator = NLSImpactEstimator(feature_dir)
+
+    # Build dataset using all available stocks
+    stocks = list(estimator.features["total_volume"].index)
+    x_all, y_all = estimator.build_dataset(stocks)
+
+    # Fit the non-linear impact model to obtain eta and beta estimates
+    eta, beta = estimator.fit_nls(x_all, y_all)
+    print(f"Overall Estimates: eta = {eta}, beta = {beta}")
+
+    # Bootstrap
+    boot_pairs = estimator.bootstrap_estimates(x_all, y_all, n_iter=1000)
+    eta_se_pairs = np.std(boot_pairs[:, 0])
+    beta_se_pairs = np.std(boot_pairs[:, 1])
+    t_eta_pairs = eta / eta_se_pairs if eta_se_pairs != 0 else float('nan')
+    t_beta_pairs = beta / beta_se_pairs if beta_se_pairs != 0 else float('nan')
+
+    # Residual Bootstrap
+    boot_resid = estimator.residual_bootstrap_estimates(x_all, y_all, eta, beta, n_iter=1000)
+    eta_se_resid = np.std(boot_resid[:, 0]) if len(boot_resid) > 0 else float('nan')
+    beta_se_resid = np.std(boot_resid[:, 1]) if len(boot_resid) > 0 else float('nan')
+    t_eta_resid = eta / eta_se_resid if eta_se_resid != 0 else float('nan')
+    t_beta_resid = beta / beta_se_resid if beta_se_resid != 0 else float('nan')
+
+    # Write parameter estimates and t-statistics (from pairs bootstrap) to params_part1.txt
+    with open("params_part1.txt", "w") as f:
+        f.write(f"eta = {eta}\n")
+        f.write(f"t-eta = {t_eta_pairs}\n")
+        f.write(f"beta = {beta}\n")
+        f.write(f"t-beta = {t_beta_pairs}\n")
+    print("Parameter estimates and t-values (pairs bootstrap) written to params_part1.txt")
+
+    # Residual Analysis (Almgren et al.)
+    y_hat = estimator.impact_model(x_all, eta, beta)
+    residuals = y_all - y_hat
+
+    # Histogram of residuals
+    plt.figure()
+    plt.hist(residuals, bins=30, edgecolor='k')
+    plt.title("Histogram of NLS Residuals")
+    plt.xlabel("Residual")
+    plt.ylabel("Frequency")
+    plt.savefig("nls_residual_histogram.png")
+    plt.close()
+
+    # Q-Q plot of residuals
+    sm.qqplot(residuals, line='s')
+    plt.title("Q-Q Plot of NLS Residuals")
+    plt.savefig("nls_qq_plot.png")
+    plt.close()
+
+    # Shapiro-Wilk test for normality
+    shapiro_stat, shapiro_p = stats.shapiro(residuals)
+    print(f"Shapiro-Wilk test statistic: {shapiro_stat}, p-value: {shapiro_p}")
+
+    # Compare Parameters for High vs. Low Activity Stocks
+    estimator.compare_stock_groups()
+
+    # Extra Credit: White's Test for Heteroskedasticity
+    estimator.test_heteroskedasticity(x_all, y_all)
 
 if __name__ == "__main__":
     main()
