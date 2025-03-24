@@ -4,16 +4,23 @@ from taq.MyDirectories import BASE_PATH
 
 class DataProcessor:
     def __init__(self, extract_dir):
+        # Initialize the DataProcessor with the directory containing extracted data
         self.extract_dir = extract_dir
 
     def compute_midquote_returns(self, daily_data, interval=120):
-        """Computes mid-quote returns at a given interval (default: 2 minutes)."""
+        """
+        Computes mid-quote returns at a given interval (default: 2 minutes).
+        Mid-quote is the average of bid and ask prices.
+        Returns are calculated as the percentage change in mid-quote over the interval.
+        """
         if len(daily_data) < interval:
-            return []  # Not enough data points
+            return []  # Not enough data points to compute returns
 
+        # Calculate mid-quotes for each entry in the data
         mid_quotes = [(entry["bid_price"] + entry["ask_price"]) / 2 for entry in daily_data]
         
         midquote_returns = []
+        # Compute returns at the specified interval
         for i in range(interval, len(mid_quotes), interval):
             prev = mid_quotes[i - interval]
             curr = mid_quotes[i]
@@ -22,35 +29,28 @@ class DataProcessor:
         return midquote_returns
 
     def compute_total_daily_volume(self, daily_data):
-        """Computes total daily traded volume."""
+        """
+        Computes the total daily traded volume.
+        Volume is the sum of bid size and ask size for all entries in the data.
+        """
         return sum(entry["bid_size"] + entry["ask_size"] for entry in daily_data)
 
     def compute_arrival_price(self, daily_data):
-        """Computes arrival price (average of first five mid-quotes)."""
+        """
+        Computes the arrival price, which is the average of the first five mid-quotes.
+        If there are fewer than five entries, it averages all available mid-quotes.
+        """
         mid_quotes = [entry["mid_quote"] for entry in daily_data]
         return sum(mid_quotes[:5]) / len(mid_quotes[:5]) \
             if len(mid_quotes) >= 5 else sum(mid_quotes) / len(mid_quotes)
     
     def add_midquote_to_data(self, daily_data):
-        """Adds mid-quote (average of bid and ask prices) to each entry in daily_data."""
+        """
+        Adds a mid-quote field to each entry in the daily data.
+        Mid-quote is calculated as the average of bid and ask prices.
+        """
         for entry in daily_data:
             entry["mid_quote"] = (entry["bid_price"] + entry["ask_price"]) / 2
-
-    def compute_imbalance(self, daily_data):
-        """Computes order imbalance between 9:30 and 3:30."""
-        time_filtered_data = self.filter_time_range(daily_data, "09:30", "15:30")
-        return sum(entry["bid_size"] - entry["ask_size"] for entry in time_filtered_data)
-
-    # TODO: Implement compute_vwap method for trade data
-    def compute_vwap(self, daily_data, start, end):
-        """Computes VWAP for a given time range."""
-        filtered_data = self.filter_time_range(daily_data, start, end)
-        total_value = sum([entry["mid_quote"] * entry["volume"] for entry in filtered_data])
-        total_volume = sum(entry["volume"] for entry in filtered_data)
-        return total_value / total_volume if total_volume > 0 else 0
-
-    def compute_terminal_price(self, daily_data):
-        """Computes terminal price (average of last five mid-quotes at 4:00)."""
         return daily_data[-1]['mid_quote'] if daily_data else 0
 
     def filter_time_range(self, daily_data, start, end):

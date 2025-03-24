@@ -40,5 +40,9 @@ def extract_all_quotes(reader):
     return extracted_data
 
 def time_to_millis(time_str):
-        h, m = map(int, time_str.split(":"))
-        return (h * 60 + m) * 60 * 1000
+    """
+    Converts a time string in the format 'HH:MM' to milliseconds since midnight.
+    """
+    h, m = map(int, time_str.split(":"))  # Split the time string into hours and minutes
+    
+    return (h * 60 + m) * 60 * 1000  # Convert hours and minutes to milliseconds
