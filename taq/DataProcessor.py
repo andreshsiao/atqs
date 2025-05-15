@@ -69,3 +69,20 @@ class DataProcessor:
 
         with open(output_file, "a") as f:
             f.write(f"{date}: {results}\n")
+
+    def compute_imbalance(self, daily_data):
+        """
+        Computes the order book imbalance for each entry:
+        Imbalance = (bid_size - ask_size) / (bid_size + ask_size)
+        Returns a list of imbalance values over the trading day.
+        """
+        imbalance = []
+        for entry in daily_data:
+            bid = entry["bid_size"]
+            ask = entry["ask_size"]
+            denom = bid + ask
+            if denom > 0:
+                imbalance.append((bid - ask) / denom)
+            else:
+                imbalance.append(0)
+        return imbalance
