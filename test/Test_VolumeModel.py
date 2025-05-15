@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 import numpy as np
-from taq.volume_models.VolumeModel import VolumeModel
+from taq.VolumeModel import VolumeModel
 
 class TestVolumeModel(unittest.TestCase):
     def setUp(self):
@@ -36,6 +36,12 @@ class TestVolumeModel(unittest.TestCase):
         prediction = self.model.predict_remaining_volume(observed, current_bucket=3)
         self.assertTrue(isinstance(prediction, list))
         self.assertAlmostEqual(sum(prediction), 1.0, delta=1e-2)
+
+    def test_static_model_evaluation(self):
+        mae, rmse, r2 = self.model.evaluate_static_model(train_frac=0.67)
+        self.assertIsInstance(mae, float)
+        self.assertIsInstance(rmse, float)
+        self.assertIsInstance(r2, float)
 
 if __name__ == "__main__":
     unittest.main()
