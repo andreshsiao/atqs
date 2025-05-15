@@ -1,3 +1,7 @@
+# This script implements a full pipeline for evaluating a guaranteed VWAP execution strategy
+# using a static and dynamic simulator and quote volume data. It reads TAQ quote data, computes
+# volume profiles, simulates execution, and evaluates slippage-adjusted execution cost.
+
 import os
 from collections import defaultdict
 import pandas as pd
@@ -11,8 +15,63 @@ from taq.TAQQuotesReader import TAQQuotesReader
 from taq.NLSEstimator import NLSImpactEstimator
 from taq.Utils import extract_tar_files, extract_all_quotes, get_stock_list  # Importing from Utils
 
+def evaluate_guaranteed_vwap_charge(volume_model, simulator_cls, client_ticker, client_shares, lam, static_profile, test_dates):
+    client_charge_total = 0
+    first_day_details = None
+
+    # Loop through test dates to simulate execution on each day and accumulate client charge
+    for idx, test_date in enumerate(test_dates):
+        try:
+            day_profile = volume_model.volume_data[client_ticker].loc[test_date]
+        except KeyError:
+            continue
+
+        volume_std = 0.05
+        noise = np.random.normal(0, volume_std, size=13)
+
+        # Add noise to the static volume profile to simulate imperfect forecasts
+        noisy_profile = np.clip(static_profile + noise, 0, None)
+        noisy_profile /= noisy_profile.sum()
+
+        # Build volume forecasts per bucket
+        volume_forecasts = [list(noisy_profile[i:]) for i in range(13)]
+
+        # Normalize observed volume
+        observed = list(day_profile.values)
+        observed = observed / np.sum(observed)
+
+        # Instantiate the simulator and run execution simulation using forecasts and observed volumes
+        simulator = simulator_cls(initial_shares=client_shares, eta=0.142, sigma=0.02, lam=lam, mode="sinh", static_profile=static_profile)
+        trades = simulator.simulate(volume_forecasts, observed_volumes=observed)
+
+        trades = np.maximum(trades, 0)
+        total_traded = trades.sum()
+        remaining = client_shares - total_traded
+        if remaining > 0:
+            trades.iloc[-1] += remaining
+
+        # Compute execution prices and evaluate cost based on VWAP benchmark
+        midquotes = np.linspace(100, 101, 13)
+        details_df = simulator.get_execution_details(trades, midquotes)
+        exec_prices = details_df["Exec Price"].values
+        ewap = np.sum(trades * exec_prices) / np.sum(trades)
+        vwap_prices = midquotes
+        vwap = np.sum(day_profile * vwap_prices) / np.sum(day_profile)
+        slippage = ewap - vwap
+        cost = ewap + lam * slippage
+        client_charge_total += cost
+
+        # Print and save detailed bucket execution summary for one representative day
+        if first_day_details is None and idx == 12:
+            print(f"\n--- Bucket Execution Summary (First Test Day: {test_date}) ---")
+            print(details_df.to_string(index=False))
+            details_df.to_csv("test_day_bucket_log.csv", index=False)
+
+    return client_charge_total / len(test_dates)
+
 def main():
-    # Extract quote and trade data from tar files
+    # === Data Extraction Phase ===
+    # Unpack raw quote and trade data from tar archives
     quotes_extract_dir = MyDirectories.getQuotesDir()
     quotes_tar_dir = os.path.join(quotes_extract_dir, "..")
     extract_tar_files(quotes_tar_dir, quotes_extract_dir)
@@ -21,126 +80,29 @@ def main():
     trades_tar_dir = os.path.join(trades_extract_dir, "..")
     extract_tar_files(trades_tar_dir, trades_extract_dir)
 
-    # Initialize data processor
-    processor = DataProcessor(quotes_extract_dir)
+    # === Simulation and Evaluation Phase ===
+    # Set up volume model, run simulator, and evaluate guaranteed VWAP quote
+    from taq.VolumeModel import VolumeModel
+    from taq.DynamicSimulator import DynamicSimulator
 
-    feature_matrices = {
-        "2min_returns": defaultdict(dict),
-        "total_volume": defaultdict(dict),
-        "arrival_price": defaultdict(dict),
-        "imbalance": defaultdict(dict),
-        "terminal_price": defaultdict(dict),
-    }
+    quotes_path = os.path.join(BASE_PATH, "../data/quotes/extracted")
+    client_ticker = "GE"
+    client_shares = 10000
+    volume_model = VolumeModel(quotes_path, target_ticker=client_ticker)
 
-    # Process each extracted date folder
-    for date_folder in sorted(os.listdir(quotes_extract_dir)):
-        date_path = os.path.join(quotes_extract_dir, date_folder)
-        if not os.path.isdir(date_path):
-            continue  # Skip if not a folder
+    # Split the available data into training and testing periods
+    train_dates, test_dates = volume_model.get_date_split(train_frac=0.8)
+    static_profile = volume_model.get_static_profile_by_dates(train_dates)
 
-        stock_list = get_stock_list(date_path)
+    # Run dynamic simulator on test data and compute average adjusted execution cost
+    client_charge = evaluate_guaranteed_vwap_charge(
+        volume_model, DynamicSimulator, client_ticker, client_shares, lam=0.01,
+        static_profile=static_profile, test_dates=test_dates
+    )
 
-        for stock in stock_list:
-            print(f"Processing stock {date_folder}: {stock}")
-
-            stock_file_path = os.path.join(date_path, f"{stock}_quotes.binRQ")
-            reader = TAQQuotesReader(stock_file_path)  # Read binary data
-            daily_data = extract_all_quotes(reader)
-
-            processor.add_midquote_to_data(daily_data)
-
-            # Compute required metrics
-            two_minute_returns = processor.compute_midquote_returns(daily_data)
-            total_volume = processor.compute_total_daily_volume(daily_data)
-            arrival_price = processor.compute_arrival_price(daily_data)
-            imbalance = processor.compute_imbalance(daily_data)
-            terminal_price = processor.compute_terminal_price(daily_data)
-
-            # Populate feature matrices
-            feature_matrices["2min_returns"][stock][date_folder] = two_minute_returns
-            feature_matrices["total_volume"][stock][date_folder] = total_volume
-            feature_matrices["arrival_price"][stock][date_folder] = arrival_price
-            feature_matrices["imbalance"][stock][date_folder] = imbalance
-            feature_matrices["terminal_price"][stock][date_folder] = terminal_price
-
-    # Save feature matrices to CSV
-    feature_dir = os.path.join(BASE_PATH, "../data/feature_matrices")
-    os.makedirs(feature_dir, exist_ok=True)
-
-    for feature, matrix in feature_matrices.items():
-        df = pd.DataFrame(matrix).T.sort_index()
-        df.to_csv(os.path.join(feature_dir, f"{feature}.csv"))
-
-    # Initialize the NLSImpactEstimator with the feature directory
-    estimator = NLSImpactEstimator(feature_dir)
-
-    # Build dataset using all available stocks
-    stocks = list(estimator.features["total_volume"].index)
-    x_all, y_all = estimator.build_dataset(stocks)
-
-    # Fit the non-linear impact model to obtain eta and beta estimates
-    eta, beta = estimator.fit_nls(x_all, y_all)
-    print(f"Overall Estimates: eta = {eta}, beta = {beta}")
-
-    # Bootstrap
-    boot_pairs = estimator.bootstrap_estimates(x_all, y_all, n_iter=1000)
-    eta_se_pairs = np.std(boot_pairs[:, 0])
-    beta_se_pairs = np.std(boot_pairs[:, 1])
-    t_eta_pairs = eta / eta_se_pairs if eta_se_pairs != 0 else float('nan')
-    t_beta_pairs = beta / beta_se_pairs if beta_se_pairs != 0 else float('nan')
-
-    # Residual Bootstrap
-    boot_resid = estimator.residual_bootstrap_estimates(x_all, y_all, eta, beta, n_iter=1000)
-    eta_se_resid = np.std(boot_resid[:, 0]) if len(boot_resid) > 0 else float('nan')
-    beta_se_resid = np.std(boot_resid[:, 1]) if len(boot_resid) > 0 else float('nan')
-    t_eta_resid = eta / eta_se_resid if eta_se_resid != 0 else float('nan')
-    t_beta_resid = beta / beta_se_resid if beta_se_resid != 0 else float('nan')
-
-    # Write parameter estimates and t-statistics (from pairs bootstrap) to params_part1.txt
-    with open("params_part1.txt", "w") as f:
-        f.write(f"eta = {eta}\n")
-        f.write(f"t-eta = {t_eta_pairs}\n")
-        f.write(f"beta = {beta}\n")
-        f.write(f"t-beta = {t_beta_pairs}\n")
-    print("Parameter estimates and t-values (pairs bootstrap) written to params_part1.txt")
-
-    # Residual Analysis (Almgren et al.)
-    y_hat = estimator.impact_model(x_all, eta, beta)
-    residuals = y_all - y_hat
-
-    # Histogram of residuals
-    plt.figure()
-    plt.hist(residuals, bins=30, edgecolor='k')
-    plt.title("Histogram of NLS Residuals")
-    plt.xlabel("Residual")
-    plt.ylabel("Frequency")
-    plt.savefig("nls_residual_histogram.png")
-    plt.close()
-
-    # Q-Q plot of residuals
-    sm.qqplot(residuals, line='s')
-    plt.legend(["Residuals", "Theoretical Quantiles"])
-    plt.title("Q-Q Plot of NLS Residuals")
-    plt.savefig("nls_qq_plot.png")
-    plt.close()
-
-    # Log Q-Q plot of residuals
-    log_residuals = np.log(np.abs(residuals[residuals != 0]))  # Avoid log(0) by filtering out zeros
-    sm.qqplot(log_residuals, line='s')
-    plt.legend(["Log Residuals", "Theoretical Quantiles"])
-    plt.title("Log Q-Q Plot of NLS Residuals")
-    plt.savefig("nls_log_qq_plot.png")
-    plt.close()
-
-    # Shapiro-Wilk test for normality
-    shapiro_stat, shapiro_p = stats.shapiro(residuals)
-    print(f"Shapiro-Wilk test statistic: {shapiro_stat}, p-value: {shapiro_p}")
-
-    # Compare Parameters for High vs. Low Activity Stocks
-    estimator.compare_stock_groups()
-
-    # Extra Credit: White's Test for Heteroskedasticity
-    estimator.test_heteroskedasticity(x_all, y_all)
+    # Output final VWAP guarantee quote for the client
+    print(f"Guaranteed VWAP execution quote: ${round(client_charge, 4)} per share")
+    print(f"(Client: {client_ticker}, Size: {client_shares} shares)")
 
 if __name__ == "__main__":
     main()
