@@ -1,5 +1,7 @@
 import os
 import tarfile
+import numpy as np
+import pandas as pd
 
 def extract_tar_files(tar_dir, extract_dir):
     """Extracts all tar files in the given directory if not already extracted."""
@@ -46,3 +48,23 @@ def time_to_millis(time_str):
     h, m = map(int, time_str.split(":"))  # Split the time string into hours and minutes
     
     return (h * 60 + m) * 60 * 1000  # Convert hours and minutes to milliseconds
+
+
+def compute_vwap(trades_df):
+    """
+    Compute the Volume Weighted Average Price (VWAP) from a DataFrame
+    containing 'price' and 'size' columns.
+    """
+    if trades_df.empty or 'price' not in trades_df.columns or 'size' not in trades_df.columns:
+        raise ValueError("DataFrame must contain 'price' and 'size' columns.")
+    return (trades_df['price'] * trades_df['size']).sum() / trades_df['size'].sum()
+
+def compute_ewap(trades, prices):
+    """
+    Compute the Execution Weighted Average Price (EWAP) from trade sizes and execution prices.
+    """
+    trades = np.array(trades)
+    prices = np.array(prices)
+    if len(trades) != len(prices) or trades.sum() == 0:
+        raise ValueError("Trades and prices must be the same length and total volume must be non-zero.")
+    return np.sum(trades * prices) / np.sum(trades)
